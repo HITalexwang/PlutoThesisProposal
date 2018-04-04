@@ -1,7 +1,8 @@
+%!TEX program = xelatex
 % !Mode:: "TeX:UTF-8"
 
 \def\xuewei{Doctor} % 定义学位 Doctor or Master
-\documentclass[cs4size,openany,oneside,UTF8,nofonts]{ctexbook}
+\documentclass[cs4size,openany,oneside,UTF8,nofonts,AutoFakeBold]{ctexbook}
 \usepackage[a4paper,text={160true mm,234true mm},top=30.5true mm,left=25true mm,head=5true mm,headsep=2.5true mm,foot=8.5true mm]{geometry}
 \usepackage{ccaption}
 \usepackage{booktabs}
@@ -25,6 +26,10 @@
 \usepackage[boxed,linesnumbered,algochapter]{algorithm2e}	
 \usepackage{listings}
 \lstset{ columns=flexible, breaklines=true }
+
+\usepackage{tikz-dependency}
+\usepackage{multirow}
+\usepackage{url}
 
 \usepackage[xetex,
             bookmarksnumbered=true,
@@ -81,10 +86,10 @@
 \renewcommand{\algorithmcfname}{算法}
 
 %\usepackage{tikz,mathpazo}
-
 %\usetikzlibrary{shapes.geometric, arrows}
 
 \newcommand{\citeayu}[1]{\citeauthor{#1}~(\citeyear{#1})\citeup{#1}}
+\newcommand{\citeyqy}[1]{~(\citeyear{#1})\citeup{#1}}
 
 \begin{document}
 
@@ -112,12 +117,13 @@
 \input{cover}
 \zihao{-4}
 \tableofcontents    % 中文目录
-\chapter*{局部多孔质气体静压轴承关键技术的研究}
+\chapter*{中文语义依存图分析技术研究}
 %\animategraphics[height=2.8in,autoplay,loop,controls]{12}{animate_}{0}{22}
-\input{body/figures}
-\input{body/tables}
-\input{body/equations}
-\input{body/others}
+
+\input{body/motivation}
+\input{body/related_work}
+\input{body/approach}
+\input{body/plan}
 
 
 \bibliographystyle{GBT7714-2005NLang-HIT}

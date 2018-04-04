@@ -1,0 +1,73 @@
+\section{课题来源及研究的目的和意义}
+
+让机器理解自然语言（Natural Language Understanding, NLU），是自然语言处理（Natural Language Processing, NLP）领域最根本也是最重要的问题之一。要实现在语义层面上理解自然语言，一般来说需要对原始文本自底向上进行分词、词性标注、命名实体识别、句法分析，最后才能进行语义分析。
+
+然而，由于中文严重缺乏形态变化，词类与句法成分没有严格的对应关系，导致中文句法分析的精度始终不高。例如，在英文宾州句法树库（Penn Treebank, PTB）上目前句法分析准确率已经能达到95\%，而在中文宾州句法树库（Chinese Penn Treebank, CTB）上则只能达到88\% \cite{dozat2017deep}。为了解决这些问题，哈工大社会计算与信息检索研究中心（HIT-SCIR）结合中文重意合、在形式分析上有劣势的语言特点，于2011年在世界上最早提出了跨越句法分析直接进行语义依存分析的思路，并与北京语言大学合作标注了中文语义依存树语料库，用树结构融合依存结构和语义关系。此后又将其扩展为语义依存图，从而更全面地刻画句中词之间的语义关系。
+
+语义依存分析（Semantic Dependency Parsing）是通往语义深层理解的一条蹊径，它通过在句子结构中分析实词间的语义关系来回答句子中“Who did what to whom when and where”等问题。以图~\ref{fig:sdp0}中的中文句子“张三前天告诉李四一件事”为例，通过语义依存分析，我们能获知“谁告诉李四一件事？”、“张三告诉谁一件事？”、“张三何时告诉李四一件事？”及“张三告诉李四什么？”等问题的答案。
+
+\begin{figure}[tb]
+	\begin{center}
+		\begin{small}
+			\begin{dependency}[arc edge, arc angle=80, text only label, label style={above}]
+				\begin{deptext} [row sep=0.4cm, column sep=.1cm]
+					\ ROOT$_0$ \& 张三 $_1$ \& 前天$_2$ \& 告诉$_3$ \&  李四$_4$  \& 一件$_5$ \& 事$_6$ \\
+				\end{deptext}
+				\depedge[edge style={black,thick}]{1}{4}{\color{black}Root}
+				\depedge[edge style={black,thick}]{4}{2}{\color{black}Agt}
+				\depedge[edge style={black,thick}]{4}{3}{\color{black}Time}
+				\depedge[edge style={black,thick}]{4}{5}{\color{black}Datv}
+				\depedge[edge style={black,thick}]{4}{7}{\color{black}Cont}
+				\depedge[edge style={black,thick}]{7}{6}{\color{black}Cont}
+			\end{dependency}
+			\caption{语义依存表示示例}\label{fig:sdp0}
+		\end{small}
+	\end{center}
+\end{figure}
+
+\begin{figure}[tb]
+	\begin{center}
+		\begin{small}
+			\begin{dependency}[arc edge, arc angle=80, text only label, label style={above}]
+				\begin{deptext} [row sep=0.4cm, column sep=.1cm]
+					\ ROOT$_0$ \& 前天$_1$ \& ，$_2$ \& 张三$_3$ \&  将$_4$  \& 一件$_5$ \& 事$_6$ \& 告诉$_7$ \& 李四$_8$  \\
+				\end{deptext}
+				\depedge[edge style={black,thick}]{1}{8}{\color{black}Root}
+				\depedge[edge style={black,thick}]{2}{3}{\color{black}mPunc}
+				\depedge[edge style={black,thick}]{7}{5}{\color{black}mPrep}
+				\depedge[edge style={black,thick}]{7}{6}{\color{black}Quan}
+				\depedge[edge style={black,thick}]{8}{2}{\color{black}Time}
+				\depedge[edge style={black,thick}]{8}{4}{\color{black}Agt}
+				\depedge[edge style={black,thick}]{8}{7}{\color{black}Cont}
+				\depedge[edge style={black,thick}]{8}{9}{\color{black}Datv}
+			\end{dependency}
+			\caption{语义依存表示示例}\label{fig:sdp1}
+		\end{small}
+	\end{center}
+\end{figure}
+
+\begin{figure}[tb]
+	\begin{center}
+		\begin{small}
+			\begin{dependency}[arc edge, arc angle=80, text only label, label style={above}]
+				\begin{deptext} [row sep=0.6cm, column sep=.5cm]
+					\ ROOT$_0$ \& 早起 $_1$ \& 使$_2$ \& 人$_3$ \&  健康$_4$ \\
+				\end{deptext}
+				\depedge[edge style={black,thick}]{1}{3}{\color{black}Root}
+				\depedge[edge style={black,thick}]{3}{2}{\color{black}Exp}
+				\depedge[edge style={black,thick}]{3}{4}{\color{black}Datv}
+				\depedge[edge style={black,thick}]{3}{5}{\color{black}eResu}
+				\depedge[edge style={black,thick}]{5}{4}{\color{black}Exp}
+			\end{dependency}
+			\caption{语义依存图表示示例}\label{fig:sdg0}
+		\end{small}
+	\end{center}
+\end{figure}
+
+此外，与句法分析不同，语义分析可以跨越句子的表层结构直接获取深层语义表达的本质，例如图~\ref{fig:sdp1}中的句子“昨天，张三将一个秘密告诉李四。”虽然与图~\ref{fig:sdp0}中的句子表述形式不同，但含义相同，因此它们的语义依存结构相同。因此语义依存分析能为机器翻译、问答系统、对话生成等对语义信息要求较高的下游任务提供很大帮助。
+
+语义依存分析建立在依存理论基础上，是对语义的深层分析，具有形式简洁，易于理解和运用的优势。具体可分为两个阶段，首先是根据依存语法建立依存结构，即找出句子中的所有修饰词与核心词对，然后再对所有的修饰词与核心词对指定语义关系。因此，语义依存分析可以同时描述句子的结构和语义信息。
+
+与分词、词性标注、句法依存分析等历史悠久的研究课题相比，语义依存分析算得上是一个新兴课题。由于其与句法依存分析在结构上的相似之处，语义依存树的分析基本可以沿用已经有诸多成果的句法依存分析领域的方法。然而近年来人们发现树结构已经无法胜任刻画句子中复杂的语义关系的任务，研究者们逐渐将目光聚集到约束更少的图结构上，希望用图结构来表示这些语义关系。因此，无论在中文还是在以英文为代表的一些外语中，越来越多图结构的语义依存语料库应运而生。例如图~\ref{fig:sdg0}的句子“早起使人健康”中，“人”同时作为“使”的与事者（Dative, Datv）和“健康”的当事者（Experiencer, Exp）。
+
+图结构在带来更全面的语义表示的同时，也给语义依存分析任务带来了巨大的挑战。对于原来的依存树结构，每个词只有一个父节点，而在依存图中，每个词可能有多个父节点，这就给分析系统带来了很大的不确定性，从而增加了语义依存分析任务的难度。因此，本学位论文的研究目标集中在图结构的中文语义依存分析上，希望能通过实现更好的语义依存分析器，提高中文语义依存分析的精度，为下游任务提供更好的语义信息，弥补中英文由于语言特性在句法分析领域产生的差距。

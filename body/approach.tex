@@ -1,0 +1,427 @@
+% !Mode:: "TeX:UTF-8" 
+\section{前期的理论研究与实验论证工作的结果}
+
+本课题相关的理论研究始于2015年9月，在经过深入的调研顺滑理论及与其紧密相关的其它自然语言处理技术的基础上，开始对顺滑任务中存在问题进行三方面的尝试。首先，针对顺滑任务中的长距离依赖问题，我们尝试用LSTM来对句子进行表示，同时，为了避免用LSTM的输出直接进行分类所带来的label偏置问题，我们最终的模型会在LSTM表示的基础上加一个CRF层，最终的LSTM-CRF模型相比于传统的模型和直接用LSTM的输出进行分类的模型相比，取得了更好的性能，该工作已经被CCL2016录用。其次，为了保证得到的顺滑句子的句法完整性，同时充分的利用全局的信息，我们尝试用注意力机制的方法，该方法将顺滑任务转化成一个生成的过程，对原句子进行编码后，直接生成目标句子，该方案取得了非常好的性能，该工作已经被COLING2016录用。最后，针对非顺滑块和顺滑块之间相似性，我们尝试基于转移的方案，我们的方案能很好的建模块之间的联系，同时能充分的利用全局的信息，该方案取得了目前最好的实验结果，该工作已经被EMNLP2017录用。
+由于LSTM-CRF模型不属于博士课题的研究点，因此本文将简要介绍以下两项工作。
+
+%(1) Enhancing Neural Disfluency Detection with Hand-Crafted Features. (CCL2016， 已发表)
+
+(1) Transition-Based Disfluency Detection using LSTMs. (EMNLP 2017， 已发表)
+
+(2) A Neural Attention Model for Disfluency Detection. (COLING 2016， 已发表)
+
+
+
+%3. A Deep Neural Network for Chinese Zero Pronoun Resolution. (Coling 2016)
+
+\subsection{基于转移的顺滑技术研究}
+\subsubsection{实验动机}
+传统的方法将顺滑任务看作序列标注问题 \citeyqy{zayats2016disfluency,hough2015recurrent,qian2013disfluency,georgila2009using}，为句子中的每一个词分配一个标签，然后根据标签判断是否要将其保留。这类方法取得了不错的结果，但其不能很好的解决长距离依赖问题，而且也没有能力利用块级别的信息。
+
+为了利用块级别的信息， \citeayu{ferguson-durrett-klein:2015:NAACL-HLT}尝试使用semi-CRF模型来解决顺滑问题，并且取得了很好的实验效果。但是semi-CRF由于受到马尔科夫假设的约束，其也只能利用局部的块信息。
+
+还有一些工作  \citeyqy{rasooli2013joint,honnibal2014joint,wu-EtAl:2015:ACL-IJCNLP} 尝试将句法分析和顺滑任务联合起来。这种联合模型的主要优点在于它们可以建模长距离的依赖关系，而且能够很好的利用块级别的信息。然而，它要求训练数据要同时标注句法和顺滑信息，这降低了算法的实用性，同时句法分析的噪声可能会严重影响顺滑任务的性能。
+
+受上述观察的启发，我们使用一种不带句法信息的转移系统来解决顺滑问题\citeyqy{zhang-zhang-fu:2016:P16-1}。我们基于转移的方法通过采用和依存句法类似的解码算法来递增地构建和标记输入句子中的不流畅块。
+\subsubsection{背景介绍}
+	在背景介绍部分，我们简要说明一下基于转移的句法分析方法和在此基础上扩展而来的句法和顺滑联合方法。一个经典的基于转移的arc-eager句法分析器主要由一个存储正在处理的词的堆栈$\sigma$，一个包含将要被处理的词的缓冲区 $\beta$和一个存储已生成的依存弧的存储器 $A$四部分组成。对于该转移系统，有四种类型的转移动作\citeyqy{nivre2008algorithms}
+\begin{itemize}
+	\item \textit{Shift} : 将缓冲区的顶端的词压到堆栈中去.
+	\item \textit{Reduce} : 弹出堆栈顶端的词.
+	\item \textit{LeftArc} : 将堆栈顶端的词弹出堆栈，并将其链接到缓冲区的顶端的词下面，作为其孩子节点.
+	\item \textit{RightArc} : 将缓冲区顶端的词弹出，并链接到堆栈顶端的词下面，作为其孩子节点
+\end{itemize}
+许多基于神经网络的句法分析器都遵循这套转移框架，例如\citeayu{dyer-EtAl:2015:ACL-IJCNLP}，他们使用不同的LSTM结构来表示从$\sigma$到$\beta$的信息。
+
+对于顺滑任务来说，输入是自动语音识别（ASR）后的可能带有不流畅块的句子。我们将输入句子的词序列表示为 $w_{1}^{n} = (w_1, . . . , w_n )$。顺滑任务的输出是表示为$D_{1}^{n} = (d_1, . . . , d_n )$的标签序列，其中每个$d_i$代表对应的词$w_i$是否属于不流畅的词。因此，顺滑任务可以被建模为给定词序列 $w_{1}^{n}$，搜索最好的序列$D^*$。
+\begin{equation}
+D^* = argmax_{D}P(D_1^n|w_1^n)\nonumber
+\end{equation}
+\citeayu{wu-EtAl:2015:ACL-IJCNLP} 提出了一种句法和顺滑联合模型，其在解码过程中，通过增加一个二值分类动作（BCT）来判断哪些词属于非顺滑的词。
+\begin{itemize}
+	\item \textit{BCT} : 判断当前的词是否为不流畅词。如果是，将其从buffer中删除，并将其标记为不流畅词。否则就从初始的四种动作中选择一种可能性最大的动作来执行。
+\end{itemize}
+顺滑和句法任务进行联合的优化，
+\begin{equation}
+\begin{split}
+(D^*, T^*) = argmax_{D,T}\prod_{i=1}^{n}P(d_i|w_1^i,T_1^{i-1}) \\ 
+\times P(T_1^i|w_1^i,T_1^{i-1},d_i), \nonumber
+\end{split}
+\end{equation}
+其中 $T_1^i$表示词 $w_i$ 被处理后的部分句法树信息，$d_i$是$w_i$的顺滑标签。$P(T_1^i|.)$ 表示句法模型，$P(d_1^i|.)$表示顺滑模型，其被用来根据部分句法树信息预测当前词的顺滑标签。
+
+\subsubsection{方法设计}
+
+BCT模型在所有句法和顺滑联合方法中的性能是最好的。然而，它要求训练数据同时包含句法树和顺滑标注信息，这降低了算法的实用性。此外，BCT并没有直接地利用不流畅块的信息。作为一个完全采用离散特征的模型，其性能很大程度上依赖于复杂的人工特征。
+
+为了解决上面的约束，我们采用了一个不使用任何句法信息的基于神经网络的转移模型来解决顺滑问题。我们基于转移的方法通过执行一系列动作来递增地构建和标记输入句子中的不流畅块。任务被建模为
+\begin{equation}
+\begin{split}
+(D^*, T^*) = argmax_{D,T}\prod_{i=1}^{n}P(d_i, T_1^i|w_1^i,T_1^{i-1}),\nonumber
+\end{split}
+\end{equation}
+其中 $T_1^i$是词$w_i$ 被处理后的局部模型状态。 $d_i$是$w_i$的顺滑标签。
+
+\subsubsection*{动作设计}
+我们的基于转移的方法通过执行一系列动作来递增地构建和标记输入句子中的不
+流畅块，其中每个时刻的状态由一个四元组($O$, $S$, $A$, $B$)表示
+\begin{itemize}
+	\item \textit{output} ($O$) :  \textit{output} 用于表示已经被标记为流畅的词。
+	\item \textit{stack} ($S$) : \textit{stack} 用于表示部分已经被标记为不流畅的词。 
+	\item \textit{action} ($A$) : \textit{action} 用于表示转移系统采取动作的完整历史记录。
+	\item \textit{buffer} ($B$) : \textit{buffer}用于表示尚未处理的句子。
+\end{itemize}
+
+给定一个可能含有不流畅块的句子， \textit{stack}，\textit{output}和\textit{action}初始化是空的，\textit{buffer}包含该句子的所有的词，然后一系列的转移动作被用于处理{buffer}中的词并构建最终的输出：
+%\begin{itemize}
+%  \item OUT：将\textit{buffer}中的第一个词移动到\textit{output}，并将\textit{stack}清除。
+%   \item  DEL：将\textit{buffer}中的第一个词移动到\textit{stack}。
+%  \end{itemize}
+\begin{itemize}
+	\item OUT: 将\textit {buffer}中的第一个词移动到\textit{output}，并将\textit{stack}清除。
+	\item  DEL:将\textit{buffer}中的第一个词移动到\textit{stack}。
+\end{itemize}
+
+\subsubsection*{解码算法}
+基于设计好的转移系统，解码器搜索给定句子的最佳动作序列。系统初始化的时候会将所有的词及其表示逆向的送到$B$中，并将 $S$，$O$， $A$置为空。
+
+在每一步，系统根据当前的状态计算每个动作对应的概率，从而决定将要被执行的动作。当$B$为空时，解码完成（不管$S$的状态如何）。由于每一步$B$顶端的词都会被直接移动到$O$或$S$，所以动作序列的总数总是等于输入句子的长度。表 
+\ref{action_sample}
+显示了处理句子“want a flight to boston to denver”的动作序列。
+\begin{table}[htbp]
+	\caption{对于输入\emph{a flight to boston to denver}的处理过程}
+	\label{action_sample}
+	\vspace{-0.5em}
+	\centering
+	%\small
+	%\renewcommand{\arraystretch}{1.1}
+	%\begin{tabular}{l{2em}l{4em}l{10em}l{6em}l{13em}}
+	\begin{tabular}{c l l l l }
+		\hline
+		Step & Action &  Output & Stack & Buffer   \\
+		\hline\hline
+		0 & NO& [] & [] & [a, flight, to, boston, to, denver]  \\
+		1 & OUT & [a] & [] & [flight, to, boston, to, denver]  \\
+		2 & OUT & [a, flight] & [] & [to, boston, to, denver]   \\
+		3 & DEL & [a, flight] & [to] & [boston, to, denver]   \\
+		4 & DEL & [a, flight] & [to, boston] & [to, denver]   \\
+		5 & OUT & [a, flight, to] & [] & [denver]  \\
+		6 & OUT & [a, flight, to, denver] & [] & []  \\
+		\hline
+	\end{tabular}
+\end{table}
+
+%\begin{figure}[htbp]
+	%\begin{figure*}[htbp]
+%	\small
+%	\vspace{-0.5em}
+%	\centering\includegraphics[width=77mm]{11}
+%	\vspace{-0.5em}
+%	\caption{ 处理输入 ``want a flight to boston to denver''时的模型状态。 }
+%	\label{fig_LSTM}
+%	\vspace{-0.8em}
+%\end{figure}
+
+  如图\ref{fig_LSTM}所示，$t$时刻的模型状态用$e_t$表示，其定义为：
+  \begin{equation}
+  e_t = max \{ 0, W[s_t; b_t; o_t; a_t] + d \} ,\nonumber
+  \end{equation}
+  其中$W$是一个需要学习的参数矩阵，$s_t$是$S$的表示，$b_t$是$B$的表示，$o_t$是$O$的表示，$a_t$是 $A$的表示，$d$是一个偏置项。$(W[s_t; b_t; o_t; a_t] + d)$通过一个ReLU函数做非线性转化。
+  
+   最后，模型状态$e_t$被用于计算$t$时刻的转移动作概率：
+   \begin{equation}
+   \begin{split}
+   p(z_t | e_t) &= \frac{exp(g_{z_t}^{\mathrm{T}}e_t + q_{z_t})}{\sum_{z' \in \mathcal{A}(S,B)}exp(g_{z'}^{\mathrm{T}}e_t + q_{z'})},\nonumber \\
+   \end{split}
+   \end{equation}
+   其中$g_z$为转移动作$z$的表示的列向量，$q_z$是动作$z$的偏置项。
+   集合$\mathcal{A}(S,B)$表示给定当前状态所有可能被采取的动作。
+   由于 $e_t = f (s_t , b_t , a_t, o_t) $包含了转移系统所有先前动作的历史信息，因此任意可能的转移动作$z$的概率可以表示为：
+   \begin{equation}
+   \begin{split}
+   p(z | w) = \prod_{t=1}^{|z|}p(z_t | e_t)\nonumber
+   \end{split}
+   \end{equation}
+   因此我们有
+   \begin{equation}
+   \begin{split}
+   (D^*, T^*) &= argmax_{D,T}\prod_{i=1}^{|z|}P(d_i, T_1^i|w_1^i,T_1^{i-1}) \\
+   &= argmax_{D,T}\prod_{t=1}^{|z|}p(z_t | e_t), \nonumber
+   \end{split}
+   \end{equation}
+   这样顺滑任务就被很自然的融入到转移系统中。
+
+\subsubsection*{柱搜索算法}
+贪心搜索的主要缺点是误差传播。一个不正确的动作将对其后所有的动作产生负面影响，从而导致误差的累计。减少误差传播的一种方式是柱搜索\citeyqy{zhang2011syntactic}。因为对于每一条可能的转移路径，我们模型所采取的动作数总是等于输入句子的长度，因此可以直接使用柱搜索策略。我们在训练和测试过程中都采用柱搜索策略。在训练过程中，我们使用早期更新策略\citeyqy{collins2004incremental, giles2001overfitting}。具体来说，在每个训练实例被解码的过程中，我们会记录正确路径的位置，如果正确路径在步骤$t$时不在前K个路径里面，则解码停止，并且使用正确路径作为正例，柱内的前K个候选作为负例来执行参数更新。我们使用全局优化方法\citeyqy{andor-EtAl:2016:P16-1,zhou-EtAl:2015:ACL-IJCNLP3}来训练我们的柱搜索模型。
+\subsubsection*{Scheduled Sampling}
+
+Scheduled sampling\citeyqy{bengio2015scheduled}也可用于减少错误传播。贪心搜索的训练目标是最大化正确动作的概率，也就是说训练过程中每一步都会采取正确的动作。但是模型被用于测试数据的时候，其每一步采取的是所预测的概率最大的动作。训练与测试之间的差异可能会导致搜索过程中错误的快速累积。Scheduled sampling使用随机采样的方法来缓解这种不一致性。具体来说，在训练过程中的每一步，我们以一定的概率$p$选择执行模型预测分数最高的动作，以$(1-p)$ 的概率选择执行正确的动作。我们在具体的解码过程中也采用了dropout的策略\citeyqy{srivastava2014dropout}
+\subsubsection{状态表示}
+
+为了更好地捕获全局的上下文信息，我们使用LSTM结构来表示每个状态的不同组成部分，包括\textit{buffer},  \textit{action},  \textit{stack}, 和  \textit{output}。具体来讲，我们利用LSTM-Minus方法\citeyqy{wang-chang:2016:P16-1}对\textit{buffer}进行建模，传统的LSTM对\textit{action}和\textit{ouptut}进行建模， stack LSTM\citeyqy{dyer-EtAl:2015:ACL-IJCNLP}来对\textit{stack}段进行建模。
+
+%\begin{figure}[htbp]
+	%\begin{figure*}[htbp]
+%	\small
+%	\vspace{-0.5em}
+%	\centering\includegraphics[width=80mm]{3}
+%	\vspace{-0.5em}
+%	\caption{利用Bi-LSTM来表示\textit{buffer} 的示意图 $h_f$(*) 和 $h_b$(*) 分别表示前向和后向LSTM的隐层输出。 }
+	%$b_t$ indicates the representation of the \textit{buffer}.}
+%	\label{fig:sub-bilstm}
+%	\vspace{-0.8em}
+%\end{figure}
+
+\subsubsection*{Buffer表示}
+
+为了获得更丰富的信息表示，我们参考\citeayu{wang-chang:2016:P16-1}的工作，使用Bi-LSTM来表示 \textit{buffer}。首先，\textit{buffer}的前向和后向LSTM分别进行减法操作，具体操作为$b_f=h_f(l)-h_f(f)$和$b_b=b_b(f)-b_b(l)$，其中$h_f(f)$ 和 $h_f(l)$分别是前向LSTM中第一个和最后一个词的隐藏向量。类似地，$h_b(f)$ 和 $h_b(l)$分别是后向LSTM中第一个和最后一个词的隐藏向量。然后这些相减结果被拼接成最终的\textit{buffer} 表示，即 $b_t=b_f \oplus b_b$。如图\ref{fig:sub-bilstm}所示，\textit{buffer}的前向和后向减法分别是$b_f=h_f(to)-h_f(denver)$ 和 $b_b=h_b(denver)-h_b(to)$。这里$to$是\textit{buffer}中的第一个词，$denver$是最后一个词。然后$b_f$和$b_b$被拼接成\textit{buffer}的最终表示。
+
+\subsubsection*{Action表示} 针对每一个动作$a$，我们都用一个对应向量$e_a(a)$来表示，这些向量最终组成一个looking-up表$E_a$。我们用传统的LSTM来表示转移系统所采取动作的完整历史。模型一旦采取行动$a$， $a$的向量表示 $e_a(a)$将被添加到LSTM的最右边的位置。
+
+\begin{table}[htbp]
+	\centering
+	\small
+	\renewcommand{\arraystretch}{1.1}
+	\begin{tabular}{l}
+		\hline
+		\bf duplicate features  \\
+		\hline
+		$Duplicate({i}, w_{i+k}), -15 \leq k \leq +15$ and $k \neq 0$: if $w_{i}$ equals $w_{i+k}$, the value is 1, others 0 \\
+		$Duplicate(p_{i}, p_{i+k}), -15 \leq k \leq +15$ and $k \neq 0$: if $p_{i}$ equals $p_{i+k}$, the value is 1, others 0 \\
+		$Duplicate(w_{i}w_{i+1}, w_{i+k}w_{i+k+1}), -4 \leq k \leq +4$ and $k \neq 0$: if $w_{i}w_{i+1}$ equals $w_{i+k}w_{i+k+1}$, \\ \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad the value is 1, others 0 \\
+		$Duplicate(p_{i}p_{i+1}, p_{i+k}p_{i+k+1})$, $-4 \leq k \leq +4$ and $k \neq 0$: if $p_{i}p_{i+1}$ equals $p_{i+k}p_{i+k+1}$, \\ \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad the value is 1, others 0 \\
+		
+		\hline
+		\bf similarity features \\
+		\hline
+		$fuzzyMatch(w_{i}, w_{i+k}), k \in \{-1,+1\} $:  \\ \qquad \qquad \qquad \qquad \qquad \qquad \qquad $similarity = 2*num\_same\_letters/(len(w_{i}) + len(w_{i+k}))$.\\ \qquad \qquad \qquad \qquad \qquad \qquad \qquad if $similarity > 0.8$, the value is 1, others 0 \\
+		\hline	
+	\end{tabular}
+	%\end{center}
+	\caption{我们的模型用到的离散特征. $p$-词性. $w$-词. }
+	%Duplicate indicates  if the two units are same. fuzzyMatch indicates similarity between two words.}
+	
+	\label{tbl:discrete-feature}
+	\vspace{-0.5em}
+\end{table}
+
+\subsubsection*{Stack表示}
+
+我们使用stack LSTM \citeyqy{dyer-EtAl:2015:ACL-IJCNLP}来表示正在被处理的不完整的非顺滑块。Stack LSTM尝试用一个“堆栈指针”来扩展常规的LSTM。对于传统的LSTM，最新的输入总是添加在最右边的位置; 但是在stack LSTM中，当有新的输入进来时，由堆栈指针所指的位置来确定LSTM中的哪个单元提供$c_{t-1}$和 $h_{t-1}$。除了在序列末尾添加元素之外，stack LSTM提供了一个 \textit{pop}操作，能将堆栈指针移动到前一个元素。因此，stack LSTM可以被理解为一个堆栈，从而使得内容不会被覆盖。当采取OUT动作时，通过将堆栈指针移动到初始位置来清空 \textit{stack}。当采取动作DEL时，\textit{buffer}顶部的元素将被直接添加到stack LSTM中。
+
+\subsubsection*{Output表示}
+
+我们使用传统的LSTM来表示\textit{output}。当采取OUT动作时， \textit{buffer}顶部的元素将被直接添加到该LSTM的最右侧。因为\textit{output}保留的是最终输出句子的连续子序列，所以该LSTM表示可以被看作是一种伪语言模型，因此其一定程度上能保证生成句子的语法完整性，这对顺滑任务来说是非常重要的。
+
+
+\subsubsection{输入表示}
+
+对于每一个位置的输入，我们使用四个向量来表示：一个需要学习的词表示  $w$ ; 一个固定的预训练好的词表示 $\widetilde{w}$\citeyqy{ling2015two}; 一个需要学习的词性的表示 $p$; 人工提取的的特征表示$d$。四个向量被拼接在一起后，经过一个ReLU层以学习特征组合：
+\begin{equation}
+x = max \{ 0, V[\widetilde{w}; w; p; d] + b \},\nonumber
+\end{equation}
+其中 $V$ 表示向量的拼接。
+
+参照\citeayu{wang-che-liu:2016:COLING}的工作，针对句子中的每一个位置，我们抽取两种类型的离散特征（如表\ref{tbl:discrete-feature}所示），然后将它们转换成0-1向量$d$。 $d$的维数为78，和离散特征的个数相同。对于每一个词$x_{t}$，如果对应的第i个特征模板为真，则对应的$d_{i}$为1。Duplicate类特征表示$x_{t}$ 在一定距离内是否具有相同的词或者词性。Similarity特征表示$x_{t}$ 的字符串是否类似于其周围的词。
+
+\subsubsection{实验结果}
+
+我们的训练集采用英文的Penn Treebank中的Switchboard数据\citeyqy{marcus1993building}。对于英文的Switchboard数据，其提供两种标注文件：一个是同时标注有句法和顺滑的（MRG文件），另一个是只标注有顺滑的（DPS文件）。由于只标注顺滑的成本较低，因此许多DPS文件都没有相对应的MRG文件，也就是说MRG文件的规模要小于DPS文件的规模。为了直接与句法和顺滑联合方法 \citeyqy{honnibal2014joint,wu-EtAl:2015:ACL-IJCNLP}进行比较，我们使用了规模相对较小的PAESED/MRG/SWBD中的MRG文件。参照\citeayu {charniak2001edit}中的实验设置，训练集包括所有sw [23] * .mrg文件，开发集包括sw4 [5-9] * .mrg文件，测试集包括sw4 [0-1] *.mrg文件。跟\citeayu {honnibal2014joint}一样，我们将英文词统一转化为小写，并删除所有标点符号和标记为“XX”或以“-”结尾的词。“um”和“uh”会先被删除，并将“you know”和“i mean”合并成单个词。在我们的实验中，采用\citeayu {qian2013disfluency}提供的工具包生成的自动词性。
+
+我们将基于转移的神经网络模型与目前的五个高性能系统进行比较。如表 \ref{compare-previous-work}所示，我们的模型性能超过之前最好的方法，达到87.5\%的F1分数。我们的模型比最好的句法和顺滑联合模型UBT\citeyqy{wu-EtAl:2015:ACL-IJCNLP}有2.4点的提升。序列标注方法中获得最好性能的是 \citeayu{ferguson-durrett-klein:2015:NAACL-HLT}的semi-CRF方法，其通过加入韵律特征达到了85.4\%的F1分数。与此相比，我们的模型获得了2.1点的提升。我们的模型相对于之前性能最好的基于注意力机制的模型\citeyqy{wang-che-liu:2016:COLING}也提高了0.8点。我们将模型的性能提升归功于其强大的学习全局的块级别信息的能力以及良好状态表示，如stack-LSTM。
+
+
+\begin{table}[htbp]
+	\setlength{\tabcolsep}{15pt}
+	%	\setlength{\abovecaptionskip}{-5pt}
+	%	\setlength{\belowcaptionskip}{5pt}
+	%	\setlength{\topsep}{-5ex}  
+	
+	\begin{center}
+		\renewcommand{\arraystretch}{1.1}
+		\begin{tabular}{l|ccc}
+			\hline
+			\bf    Method & \bf P & \bf R & \bf F1 \\
+			\hline
+			Our &  91.1 & 84.1 & \textbf{87.5}\\ 
+			\hline
+			Attention-based \citeyqy{wang-che-liu:2016:COLING} &  91.6 & 82.3 & 86.7\\ 
+			Bi-LSTM \citeyqy{zayats2016disfluency} &  91.8 & 80.6 & 85.9\\ 
+			semi-CRF \citeyqy{ferguson-durrett-klein:2015:NAACL-HLT} & 90.0 & 81.2 & 85.4\\
+			UBT \citeyqy{wu-EtAl:2015:ACL-IJCNLP} &  90.3 & 80.5 & 85.1\\ 
+			M$^3$N \citeyqy{qian2013disfluency} & - & - & 84.1\\           
+			\hline
+			
+		\end{tabular}
+	\end{center}
+	\caption{\label{re_error}  和之前最好的方法在英文Switchboard测试集上的比较。 }
+	\label{compare-previous-work}
+\end{table}
+
+
+
+
+
+
+
+
+\subsection{基于注意力机制的顺滑技术研究}
+\subsubsection{实验动机}
+建模长距离依赖问题是解决顺滑问题的一个核心要点。以前的序列标注的方法\citeyqy{ferguson-durrett-klein:2015:NAACL-HLT,georgila2009using,qian2013disfluency} 需要复杂的人工特征来捕捉长距离的依赖信息，但是其往往面临特征稀疏的问题。句法和顺滑联合的方法尝试将非顺滑块的识别融合到句法分析的过程中，这样非顺滑块和其对应的顺滑块就可以进行充分的交互。但是，这种方法需要额外在口语数据上标注句法数据，实用性不是很强。而且，其顺滑的性能严重依赖于句法分析的性能。另外，如何保证删除非顺滑块的句子的结构完整性也是顺滑任务中一个很重要的指标。传统的序列标注方法是没有能力建模句子的内部结构的。顺滑和句法联合任务虽然理论上能建模句子的内部句法结构，但是其性能受到句法分析模型的限制。针对上述两个挑战，我们首次利用seq-to-seq的方法来解决顺滑问题。采用seq-to-seq方法主要有两个动机，一个是seq-to-seq框架在编码阶段会对输入句子学习一个全局的表示，这个全局表示可能会有助于解决长距离依赖问题，另一方面，seq-to-seq方法本身可以被看做一个基于条件的语言模型，原始的输入句子相当于语言模型的条件，解码阶段相当于一个语言模型的生成过程，这样就有一定得能力保证生成句子的句法完整性。
+
+\subsubsection{背景介绍：seq-to-seq模型}
+
+
+\subsubsection*{RNN Encoder-Decoder}
+
+基于RNN Encoder-Decoder的模型已经被应用到很多的序列生成任务中，如\citeayu{sutskever2014sequence,cho-EtAl:2014:EMNLP2014}.
+在 Encoder-Decoder 框架中，输入句子序列$X = [x_{1}, ..., x_{T}]$首先被encoder RNN 转化成一个固定的向量$c$，i.e.
+\begin{equation}
+h_{t} = f(x_{t}, h_{t-1});  \indent c = q(\{h_{1}, ..., h_{T}\})
+\end{equation}
+其中 $h_{t} \in R^n$是时刻 $t$的隐层状态，  $c$ 是一个从隐层状态表示生成的向量。 $f$ 和 $q$ 是一些非线性函数。
+比如，\citeayu{sutskever2014sequence} 用 LSTM 来表示 $f$ 和 $q(\{h_{1}, ..., h_{T}\}) = h_{T}$。
+
+decoder端经常被用来在给定上下文向量$c$ 和之前预测的词$\{y_1, ..., y_{t-1}\}$的基础上预测下一个词$y_t$。换句话说，decoder将翻译$y$ 的联合概率表示成：
+\begin{equation}
+p(y) = \prod_{t=1}^{T}p(y_{t} \ | \ \{y_1, ..., y_{t-1}\}, c),
+\end{equation}
+其中 $y = \{y_1, ...,y_{t-1}\}$. 通过RNN，每个条件概率被建模成
+\begin{equation}
+p(y_{t} \ | \ \{y_1, ..., y_{t-1}\}, c) = g(y_{t-1},s_t,c),
+\end{equation}
+其中  $g$是一个非线性的多层的表示$y_t$概率的函数 , $s_t$ 表示
+RNN的隐层状态.
+
+
+
+\subsubsection*{注意力机制}
+
+注意力机制首先被\citeayu{bahdanau2014neural}引入到seq-to-seq模型中，用来解决之前用一个固定向量来表示输入句子的问题，其在很多任务上取得了非常好的效果\citeyqy{ting}。
+在decoding过程中，注意力机制用一个动态变化的上下文向量 $c_t$ 来表示输入端的信息。
+在decoding的每个时间点 $t$ ，$c_t$的计算公式如下:
+\begin{equation}
+\begin{split}
+u_{tj} &= v^T tanh(W_1h_j + W_2s_{t-1}) \indent  j \in (1, ... ,n) \\
+a_{tj} &= \frac{exp(u_{tj})}{\sum_{k=1}^{T}exp(u_{tk})} \indent  j \in (1, ... ,n)\\
+c_t &= \sum_{j=1}^{n}a_{tj}h_j
+\end{split}
+\end{equation}
+其中 $s_{t-1}$ 是 $t-1$时刻decoder端的隐层状态. $v$, $W_1$, 和 $W_2$ 是要学习的模型参数。
+最后, $c_t$ 和 $s_{t-1}$ 被拼接到一起用来预测下一个$y_t$，并作为decoder RNN的下一步输入。我们称呼$u_{tj}$为相关性得分或者第$j$个输入对当前预测的权重。
+
+\subsubsection{方法设计}
+
+对于顺滑任务，其输出必须是对应输入的有序子序列。传统的seq-to-seq方法\citeyqy{sutskever2014sequence, rush-chopra-weston:2015:EMNLP}的输出候选是被事先固定好的，这就意味着其每一步只能从候选词典中选择一个概率最大的词作为输出。因为这个限制，我们不能直接将传统的seq-to-seq方法直接用到我们的顺滑任务中，其主要原因包括，（1）其可能会生成一些输入句子之外的词， （2）其不能生成一些不在词表中，但是却在输入句子中出现的词，（3） 其没有能力保证生成词组的有序性。为了突破这些限制，我们提出采用了一个新的基于注意力机制的模型，如图\ref{fig:lstmcrf}所示。
+
+%\begin{figure}[t]
+	%\setlength{\abovecaptionskip}{-100pt}
+	%\setlength{\belowcaptionskip}{-13pt}
+	%
+	%\setlength{\topsep}{-5ex} 
+%	\centering
+	%	\includegraphics[width=0.6\textwidth]{coling1.pdf}
+%	\includegraphics[]{coling1.pdf}
+%	\caption{我们的基于注意力机制的框架。} 
+%	\label{fig:lstmcrf} 
+%\end{figure}
+
+
+
+
+
+\subsubsection*{Encoder设计}
+我们采用基于双向LSTM的RNN来将输入句子转化成一系列的隐层状态，其中每个隐层状态
+$h_t$ 对应于输入句子中的词 $x_t$。
+前向的RNN从左往右的读入输入句子$x = (x_1, . . . , x_T )$，产生隐层状态序列$(\overrightarrow{h_{1}}, . . . , \overrightarrow{h_{T}} )$。
+对应的，后向RNN从右往左的读入输入句子，并产生隐层状态序列$(\overleftarrow{h_{1}}, . . . , \overleftarrow{h_{T}} )$。
+我们将每个词对应位置的前向和后向的隐层状态进行拼接，组成最终的状态表示 $(h_{1}, . . . , h_{T} )$，其中$h_j = [\overrightarrow{h_{j}} ; \overleftarrow{h_{j}}]$。
+每个向量$h_j$ 将第$j$个词及其周围的词的信息进行编码。
+
+\subsubsection*{基于注意力机制的decoder端设计}
+
+%\begin{figure}[htbp]
+	%\setlength{\abovecaptionskip}{-100pt}
+	%\setlength{\belowcaptionskip}{-13pt}
+	%
+	%\setlength{\topsep}{-5ex} 
+%	\centering
+	%	\includegraphics[width=0.6\textwidth]{coling1.pdf}
+%	\includegraphics[]{algorithm.pdf}
+%	\caption{我们的基于注意力机制的模型的学习算法。} 
+%	\label{algorithm} 
+%\end{figure}
+
+参照\citeayu{NIPS2015_5866}的工作，我们通过修改decoder的框架来突破传统seq-to-seq 方法对固定词表的限制。主要的改变包括：
+
+\begin{itemize}
+	\item 我们将输入句子中的词序列 $(x_i, ... x_j)$ 作为候选，在decoding的每一步，我们从其中选一个词作为输出，而不是从一个固定词表中选词。这种机制保证了生成的词都包含在输入句子中，而且还能生成一些不在固定词表中出现，但是在输入句子中出现的词
+	\item 一旦一个词$x_k$ 被选中，所有的词$(x_i, ... , x_{k-1})$将会被删除，下一步的候选词序列将变成$(x_{k+1}, ... x_l)$，这种机制能保证生成的词序列与它们出现在输入句子中的顺序相一致。
+\end{itemize}
+
+现在的关键问题是在每一步如何从候选词序列$(x_i, ... x_j)$ 中选取正确的词。
+我们在每一步选择具有最高相关权重$u_{tk}$的词$x_k$作为最优的选择。在背景介绍部分，传统的注意力机制算法每一步都会在所有的输入句子序列 $(x_1, .... , x_T)$上计算相关权重向量$u_t$。
+这种机制并不适合我们的任务，因为我们的任务在每一步只需要计算在$(x_i, ... x_j)$上面的相关权重。
+因此，我们对传统的注意力机制进行修改，新的 $p(y_{t} \ | \ \{y_1, ..., y_{t-1}\}, c)$的计算公式如下：
+\begin{equation}
+\begin{split}
+&u_{tk} = v^T tanh(W_1h_k + W_2s_{t-1}  + W_3d_{k-i}) \indent  k \in (i, ... ,j)  \\
+&p(y_{t} \ | \ \{y_1, ..., y_{t-1}\}, c) = softmax(u_t)
+\end{split}
+\end{equation}
+其中$d_{k-i}$是上一个被选中的词$x_{i-1}$ 和对应的词$x_k$的距离的表示。
+距离信息对我们的模型是非常重要的，因为如果两个候选词有相似的上下文信息表示，那么后面的词被选中的概率往往较大。
+一旦$x_k$ 被选中，我们将用其更新decoder RNN，并且从$(x_{k+1}, ... , x_{l})$中选择下一个词。为了学习我们的基于注意力机制的模型的参数，我们在训练的时候，对于给定的输入句子$\{(x_i, y_i)\}_{n=1}^{N}$ ，最小化其对应输出的负的对数概率：
+\begin{equation}
+-\sum_{i=1}^{N}log(p(y_i|x_i)) = -\sum_{i=1}^{N}log(\prod_{t=1}^{T}p(y_{t} \ | \ \{y_1, ..., y_{t-1}\}, c))
+% -\sum_{i=1}^{N}log(p(y_i|x_i)) = -\sum_{i=1}^{N}log(\prod_{t=1}^{T}softmax(u_t))
+\end{equation}
+详细的学习算法参见图5中的算法流程图。
+
+
+
+
+
+
+
+
+\subsubsection{实验结果}
+
+我们的训练集和对应的处理方法与上一节中的基于转移的方法一致。
+我们将基于注意力机制的神经网络模型与目前的四个高性能系统进行比较。如表 \ref{previous_work}所示，我们的模型性能超过之前最好的方法，达到86.7\%的F1分数。我们的模型比最好的句法和顺滑联合模型UBT\citeyqy{wu-EtAl:2015:ACL-IJCNLP}有1.6点的提升。序列标注方法中获得最好性能的是 \citeayu{ferguson-durrett-klein:2015:NAACL-HLT}的semi-CRF方法，与此相比，我们的模型获得了1.9个点的提升。注意到我们的模型在准确率和召回率上同时取得了最好的结果。实验结果的分析显示我们的基于注意力机制的模型对于顺滑任务来说是一个不错的解决方案。
+\begin{table}[htbp]
+	\setlength{\tabcolsep}{5pt}
+	%	\setlength{\abovecaptionskip}{-5pt}
+	%	\setlength{\belowcaptionskip}{5pt}
+	%	\setlength{\topsep}{-5ex}  
+	
+	\begin{center}
+	%	\renewcommand{\arraystretch}{1.1}
+		\begin{tabular}{l|ccc}
+			%\begin{tabular}{|>{\hfil}p{120pt}<{\hfil}|>{\hfil}p{45pt}<{\hfil}|>{\hfil}p{45pt}<{\hfil}|
+			%	>{\hfil}p{45pt}<{\hfil}|>{\hfil}p{45pt}<{\hfil}|}
+			%\begin{tabular}{ l |>{\hfil}p{45pt}<{\hfil} >{\hfil}p{45pt}<{\hfil} 
+			%		>{\hfil}p{45pt}<{\hfil}}
+			\hline
+			%\multirow{2}{*}{Pronoun} & \multicolumn{2}{c||}{OntoNotes} & \multicolumn{2}{c|}{Baidu-Zhidao}\\
+			%\cline{2-5}
+			%& Pipeline & Joint & Pipeline & Joint \\
+			\bf    Method & \bf P & \bf R & \bf F1 \\
+			\hline
+			Attention-based &  91.6\% & 82.3\% & \textbf{86.7}\%\\ 
+			\hline
+			M$^3$N \citeyqy{qian2013disfluency} & - & - & 84.1\%\\
+			%	\hline
+			Joint Parser \citeyqy{honnibal2014joint} &  - & - & 84.1\%\\
+			%	\hline
+			semi-CRF \citeyqy{ferguson-durrett-klein:2015:NAACL-HLT} & 90.1\% & 80.0\% & 84.8\%\\
+			%	\hline
+			UBT \citeyqy{wu-EtAl:2015:ACL-IJCNLP} &  90.3\% & 80.5\% & 85.1\%\\            
+			\hline
+			
+		\end{tabular}
+	\end{center}
+	\caption{\label{re_error} 我们的基于注意力机制的模型与之前的四个最好的方法在英文SwitchBoard数据的测试集上的表示.}
+	\label{previous_work}
+\end{table}
+
