@@ -19,12 +19,12 @@
 	\item \textbf{基于图的分析方法}
 	\ \ \ \ 由于依存树具有严格的结构限制（例如每个词只能拥有一个父节点），传统基于图的分析方法往往在计算出所有可能子结构的分数的基础上，使用\citeayu{eisner1996three}提出的Eisner算法（一种动态规划算法）进行解码，找出其中的最大生成树。
 	然而依存图结构不具备这些结构限制，因此原来的解码算法在该任务上已经不适用。目前该方向的工作普遍采取了对每个子结构逐个判断的方法，并同时使用多种分解方式获得不同级别的子结构，然后用$AD^3$算法解码，解决子结构之间存在重叠的问题。由于没有了结构限制，仅靠第一步计算的分数作为判断依据产生的依存图精度会受到很大影响。
-	因此我们首先将尝试将更适合的神经网络引入第一步计算子结构分数的过程中，提高其对子结构分数估计的准确性。同时我们还将尝试使用更高阶、更具有图结构特性的子结构分解方式（即每个子结构包含更多弧），从而提高最终得到的语义依存图的精度。
+	因此我们首先将尝试将更适合的神经网络引入第一步计算子结构分数的过程中，提高其对子结构分数估计的准确性。同时我们还将尝试使用更高阶（即每个子结构包含更多弧）、更具有图结构特性的子结构分解方式，从而提高最终得到的语义依存图的精度。
 	（本部分工作正在进行中）
 	
 	\item \textbf{基于不同长度LSTM的模型融合技术}
 	\ \ \ \ 模型融合技术在依存分析领域内已经被一些工作证明是一种简单而有效的提升系统性能的方式，但目前普遍被使用的模型融合技术要么是用不同的系统预测出的多个结果进行投票获得最终结果，要么是在同一系统的训练中使用不同的随机初始化种子得到多个模型，然后在预测时同时使用这些模型。前者虽然有效且具有可解释性，但是要求设计多个不同且有效的分析系统，难度较大，往往被用于合并多个前人已经实现的系统。后者虽然只需要设计一个系统，但是可解释性不强。而且这两种方法都没有利用语义依存图的特性。
-	因此我们将利用语义依存图短、中、长距离依赖的不同，尝试使用不同长度的LSTM对它们分别进行建模，然后对这些模型进行融合。该方法不仅利用了语义依存图的特性，而且具有较强可解释性，并可同时应用于基于转移的和基于图的方法中。
+	因此我们将利用语义依存图短、中、长距离依赖关系的不同，尝试使用不同长度的LSTM对它们分别进行建模，然后对这些模型进行融合。该方法不仅利用了语义依存图的特性，而且具有较强可解释性，并可同时应用于基于转移的和基于图的方法中。
 	（本部分工作正在进行中）
 	
 	\item \textbf{面向语义分析任务的多任务学习技术}
@@ -40,7 +40,7 @@
 上述各研究内容的关系如图\ref{fig:relation}所示。
 \begin{figure}[htbp]
 	\centering
-	\includegraphics[width = 150mm]{picture/relation.jpg}
+	\includegraphics[width = 140mm]{picture/relation.jpg}
 	\caption{研究内容概况图}
 	\label{fig:relation}
 \end{figure}
@@ -48,12 +48,113 @@
 
 
 \subsection{实施方案}
+
 由于四个研究点中的第一个已经完成，并且被录用，所以实施方案部分将主要介绍另外三个研究点。
 研究工作将从如下几个方面展开：
-\subsubsection{基于easy-first的方案}
 
+\subsubsection{基于图的分析方法}
 
-\subsubsection{基于对偶学习的方案}
+基于图的分析方法一般分为两步，第一步计算完全图中每个子结构的分数，第二步选出分数之和最大的子结构的组合作为预测出的目标结构。根据子结构的复杂度，基于图的分析模型可以分为一阶\citeyqy{mcdonald-crammer-pereira:2005:ACL}、二阶\citeyqy{mcdonald2006online}和高阶模型\citeyqy{koo-collins:2010:ACL}，这里的阶数指的是每个子结构中依存弧的个数（例如一阶模型中每个子结构只包括一条弧）。高阶模型可以使用更复杂的子结构特征，因此其准确率更高，但解码算法的效率也会降低。
+
+目前基于图的依存分析领域大部分工作的分析目标都是树结构的，由于依存树具有严格的结构限制（例如每个词只能有一个父节点），这些方法往往能够使用Eisner算法\citeyqy{eisner1996three}或在其基础上衍生出的其它动态规划算法\citeyqy{koo-collins:2010:ACL}进行解码。但是依存图结构中没有这些结构限制，因此上述方法在此不再适用。目前该方向的工作普遍采取了对每个子结构逐个判断的方法，这种方法虽然简单直观，但由于没有了结构限制，仅靠第一步计算的分数作为判断依据产生的依存图精度会受到很大影响。在此情况下要设计精度更高的基于图的依存分析方法，主要有两条路径，一是提高第一步中对每个子结构分数估计的准确性，二是选取更适合图结构的高阶模型，使得子结构本身就具有图的一定特性，从而提高最终得到的语义依存图的精度。接下来我们将分别介绍这两条路径的实施方案。
+
+为了便于理解，我们首先以一阶模型为例，给出基于图的依存分析中第一步计算依存结构分数的形式化定义。在该模型中，一个依存结构的分数$s(\boldsymbol{x},\boldsymbol{y})$为其中所有子结构的分数之和（即所有弧的分数之和）：
+
+\begin{equation}
+s(\boldsymbol{x},\boldsymbol{y})=\sum_{(i,j) \in \boldsymbol{y}} s(i,j)
+\end{equation}
+
+其中，$\boldsymbol{x}=x_1,\dots,x_n$表示输入句子，$\boldsymbol{y}$表示其对应的依存结构。我们可以将$\boldsymbol{y}$看作一个依存弧集合，因此$(i,j) \in \boldsymbol{y}$表示从词$x_i$指向词$x_j$的弧在$\boldsymbol{y}$中。
+
+目前以依存图为分析目标的工作中，大多使用传统的基于离散特征的模型，使用高维稀疏的特征向量与特征权重向量的点积计算子结构的分值：
+
+\begin{equation}
+s(i,j) = \mathbf{w} \cdot \mathbf{f}(i,j)
+\end{equation}
+
+其中$\mathbf{f}(i,j)$表示从$x_i$指向$x_j$的弧对应的高维二元特征向量，$\mathbf{w}$表示特征权重向量。$\mathbf{f}(i,j)$中的每一维$f(i,j)$都用0和1表示一个特征是否出现，例如：
+
+\begin{equation}
+f(i,j)=
+\begin{cases}
+1& x_i = \text{"我" 且\ } x_j = \text{"是"} \\
+0& \text{其他情况}
+\end{cases}
+\end{equation}
+
+\citeayu{peng-thomson-smith:2017:Long}将依存句法分析领域中使用神经网络计算子结构分数的想法\citeyqy{kiperwasser2016simple}引入语义依存图分析中来，将句中词的词向量、词性向量作为双向LSTM的输入，然后将正向和反向LSTM的第$i$个时间节点的隐层状态拼接起来作为词$x_i$的表示向量$\mathbf{h}_i=[\overrightarrow{\mathbf{h}}_i;\overleftarrow{\mathbf{h}}_i]$。用这些低维致密的表示向量代替原有高维稀疏特征向量计算子结构分数，证明了该方法在依存图分析中的有效性。
+
+\citeayu{peng-thomson-smith:2017:Long}的方法虽然成功将神经网络引入语义依存图分析任务中，但他们的对于词的表示比较单一，没有考虑一个词分别作为弧中的父节点和子节点时的不同情况。
+目前基于图的句法分析方法中性能最好的是\citeayu{dozat2017deep}提出的基于深层双仿射（Biaffine）神经网络的分析器，他们凭借该分析器在CoNLL 2017多语言依存句法分析任务\citeyqy{zeman-EtAl:2017:K17-3}上取得了世界第一的成绩\citeyqy{dozat-qi-manning:2017:K17-3}。
+该方法获得句中词的表示向量的步骤与\citeayu{peng-thomson-smith:2017:Long}相同，但在之后将这些表示输入4个不同的MLP分别获得每个词的4个表示向量：
+
+\begin{equation}
+\mathbf{h}^{(arc-dep)}_i = \text{MLP}^{(arc-dep)}(\mathbf{h}_i)
+\end{equation}
+\begin{equation}
+\mathbf{h}^{(arc-head)}_i = \text{MLP}^{(arc-head)}(\mathbf{h}_i)
+\end{equation}
+\begin{equation}
+\mathbf{h}^{(rel-dep)}_i = \text{MLP}^{(rel-dep)}(\mathbf{h}_i)
+\end{equation}
+\begin{equation}
+\mathbf{h}^{(rel-head)}_i = \text{MLP}^{(rel-head)}(\mathbf{h}_i)
+\end{equation}
+
+其中$\mathbf{h}^{(arc-dep)}_i$和$\mathbf{h}^{(arc-head)}_i$分别表示$x_i$在计算弧的分数时作为子节点和作为父节点时的表示向量，$\mathbf{h}^{(rel-dep)}_i$和$\mathbf{h}^{(rel-head)}_i$分别表示$x_i$在计算弧标签分数时作为子节点和作为父节点时的表示向量。在此基础上利用双仿射分类器计算句中每个词作为词$x_i$的父节点时该弧的分数：
+
+\begin{equation}
+\begin{split}
+\mathbf{s}^{(arc)}_i & = H^{(arc-head)}W^{(arc)}\mathbf{h}^{(arc-dep)}_i \\
+& + H^{(arc-head)}\mathbf{b}^{\top(arc)}
+\end{split}
+\end{equation}
+
+其中$\mathbf{s}^{(arc)}_i$是每个词作为$x_i$的父节点的分数向量，它的第$j$维表示弧$(j\rightarrow i)$的分数。$H^{(arc-head)} \in \mathbb{R}^{n \times d}$是句中$n$个词的$(arc-head)$表示向量拼接起来的矩阵。$W^{(arc)} \in \mathbb{R}^{d \times d}$是弧的权重矩阵，$\mathbf{h}^{(arc-dep)}_i$是词$x_i$的$(arc-dep)$表示向量，$\mathbf{b}^{(arc)}$是弧的偏移向量。使用这种方法，我们能够计算出任意两个词之间的弧的分数，在此基础上使用解码算法就能得到预测出的依存图结构。之后需要为每条弧计算出对应的弧标签，假设$y'_i$是我们预测出的词$x_i$的父节点，这条弧上弧标签的分数向量为：
+
+\begin{equation}
+\begin{split}
+\mathbf{s}^{(rel)}_i & = \mathbf{h}_{y'^{(arc)}}^{\top(rel-head)}\mathbf{U}^{(rel)}\mathbf{h}^{(rel-dep)}_i \\
+& + W^{(rel)}(\mathbf{h}^{(rel-dep)}_i \oplus \mathbf{h}^{(rel-head)}_{y'^{(arc)}_i}) \\
+& + \mathbf{b}^{(rel)}
+\end{split}
+\end{equation}
+
+其中$\mathbf{s}^{(rel)}_i \in \mathbb{R}^{k}$是$k$个弧标签的分数向量，每一维表示一个标签的分数。$\mathbf{h}_{y'^{(arc)}}^{(rel-head)}$是词$y'_i$的$(rel-head)$表示向量，$\mathbf{h}^{(rel-dep)}_i$是词$x_i$的$(rel-dep)$表示向量，$\mathbf{U}^{(rel)} \in \mathbb{R}^{d\times k \times d}$是弧标签的权重张量，$W^{(rel)} \in \mathbb{R}^{k \times 2d}$是弧标签的权重矩阵，$\mathbf{b}^{(rel)}$是弧标签的偏移向量。最终选择分数最高的弧标签作为这条弧上的标签$y'^{(rel)}_i$：
+
+\begin{equation}
+y'^{(rel)}_i = \arg \max_j s^{(rel)}_{ij}
+\end{equation}
+
+该方法不仅有效利用了神经网络强大的信息抽取能力，而且考虑了每个词作为弧中的父节点和子节点时的不同情况，因此在句法依存树分析任务中获得了目前最好结果。为了进一步提高基于图的语义依存图分析方法中第一步对每个子结构分数估计的准确性，我们会将该模型应用到依存图分析任务中来，为第二步的解码提供良好的基础。
+
+\begin{figure}[hbtp]
+	\centering
+	\includegraphics[width=100mm]{picture/parts.jpg}
+	\caption{\citeayu{martins2014priberam}使用的子结构}
+	\label{fig:parts}
+\end{figure}
+
+为了提高语义依存图分析的精度，我们还会尝试选取更适合图结构的高阶模型，使子结构具有图的一定特性。目前已有的基于图的语义依存图分析研究工作中，一般使用的是一阶或二阶模型。\citeayu{martins2014priberam}在其工作中首次使用了具有图特性的子结构，他们所使用的的所有子结构如图~\ref{fig:parts}所示。其中第一行三个为一阶分解，第二和第三行为二阶分解，随机双父节点和连续双父节点两种子结构为图结构所特有的。在依存句法分析领域，很多工作使用了超过二阶的模型，例如\citeayu{koo-collins:2010:ACL}和\citeayu{martins-almeida-smith:2013:Short}都使用了每个子结构包含三条弧的三阶模型。因此，我们将尝试将上述的随机双父节点和连续双父节点两种子结构扩展到三阶，即随机三父节点和连续三父节点，从而增强子结构的图特性，提高分析系统的精度。
+
+\subsubsection{基于不同长度LSTM的模型融合技术}
+
+模型融合技术目前已经在依存分析领域内取得了一些成功，被视为是一种简单而有效的提升系统性能的方式。但目前普遍被使用的模型融合技术要么是用不同的系统预测出的多个结果进行投票决定最终结果\citeyqy{du-EtAl:2015:SemEval}，要么是在同一系统的训练中使用不同的随机初始化种子得到多个模型，然后在预测时同时使用这些模型\citeyqy{kuncoro-EtAl:2016:EMNLP2016,che-EtAl:2017:K17-3}。前者虽然有效且具有可解释性，但是要求设计多个不同且有效的分析系统，难度较大，往往被用于合并多个前人已经实现的系统。后者虽然只需要设计一个系统，但是可解释性不强。而且这两种方法都没有利用语义依存图的特性。
+
+在语义依存图中，一个重要的区分依存弧的指标就是弧中两个词的距离。基于这一点观察，我们希望按照依存距离的不同建立多个模型，用它们分别对短、中、长距离的依存关系进行建模，然后对这些模型进行融合。因此，我们需要一个能够对可变长度序列进行编码的模型。
+
+\begin{figure}[hbtp]
+	\centering
+	\includegraphics[width=130mm]{picture/ts-lstm.jpg}
+	\caption{TS-LSTM网络结构示意图（LSTM个数$N=3$，窗口长度$W=4$，时间跨度$TS=2$）}
+	\label{fig:ts-lstm}
+\end{figure}
+
+我们从\citeayu{lee2017ensemble}的动作识别的研究工作中得到了启发。他们提出了一种时间滑动长短时记忆网络（Temporal Sliding LSTM, TS-LSTM），由多个在输入序列上以一定的时间跨度滑动的LSTM组成。通过改变时间跨度$TS$和LSTM的窗口长度$W$可以实现提取不同长度依存信息的目的。该TS-LSTM的网络结构如图~\ref{fig:ts-lstm}所示。其中$x_t$表示句中第$t$个词的向量表示，
+
+%该方法不但利用了语义依存图的结构特性，而且具有较强的可解释性，并且可以同时应用于基于转移的和基于图的分析方法中。
+
+\subsubsection{面向语义分析任务的多任务学习技术}
 
 
 \subsection{可行性分析}
