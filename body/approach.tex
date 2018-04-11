@@ -136,10 +136,10 @@
 \vspace{-0.6em}
 
 \begin{equation}
-h=(W[x_w;x_t;x_l ]+b)^3
+\mathbf{h}=(W[\mathbf{x}_w;\mathbf{x}_t;\mathbf{x}_l ]+\mathbf{b})^3
 \end{equation}
 
-其中$x_w$、$x_t$和$x_l$分别为表示词、词性和依存关系的向量，$b$为偏置项。
+其中$\mathbf{x}_w$、$\mathbf{x}_t$和$\mathbf{x}_l$分别为表示词、词性和依存关系的向量，$\mathbf{b}$为偏置项。
 
 \begin{figure}[hbtp]
 	\centering
@@ -150,28 +150,29 @@ h=(W[x_w;x_t;x_l ]+b)^3
 
 受到该工作的启发，我们在录用于CCL 2016的工作中也使用了MLP作为分类器\citeyqy{wang2016transition}，有效解决了上述几个问题。首先，由于对词向量的初始化使用了用大规模语料预先训练得到的词向量，其中包含的词比训练语料中出现的词要多很多，一定程度上缓解了数据稀疏问题。其次，神经网络中采用三次方函数作为激活函数，避免了人工特征组合，而且对所有隐层节点特征进行三三组合，对特征组合的覆盖更全面。最后，神经网络中使用低维稠密的向量形式表示词、词性和依存弧特征，避免了特征字符串组合的过程，大大缩短了分析所需时间。然而在该方法中仍然只选择了转移系统中有限的一些位置的特征向量作为预测的依据，还有大量位置未被考虑，而这些位置却可能包含了长距离依赖等对于依存分析十分重要的信息。
 
-\citeayu{dyer-EtAl:2015:ACL-IJCNLP}提出了Stack LSTM结构，用几个单向LSTM分别计算转移系统中每部分所有信息的表示向量，然后将这些向量组合起来作为当前转移状态的表示$e_t$：
+\citeayu{dyer-EtAl:2015:ACL-IJCNLP}提出了Stack LSTM结构，用几个单向LSTM分别计算转移系统中每部分所有信息的表示向量，然后将这些向量组合起来作为当前转移状态的表示$\mathbf{e}_t$：
 
 \vspace{-0.6em}
 \begin{equation}
-e_t=\max(0,W[s_t\oplus b_t \oplus p_t \oplus a_t ]+d)
+\label{eq:trans}
+\mathbf{e}_t=\max(0,W[\mathbf{s}_t;\mathbf{b}_t; \mathbf{p}_t; \mathbf{a}_t ]+\mathbf{d})
 \end{equation}
 
-其中$W$是参数矩阵，$s_t$是Stack LSTM对$\sigma$的编码，$b_t$是Stack LSTM对$\beta$的编码， $p_t$是Stack LSTM对$\delta$的编码，$a_t$是Stack LSTM对$A$的编码，$d$是偏置项。
-之后转移状态$e_t$用于计算该状态下转移动作的概率分布：
+其中$W$是参数矩阵，$\mathbf{s}_t$是Stack LSTM对$\sigma$的编码，$\mathbf{b}_t$是Stack LSTM对$\beta$的编码， $\mathbf{p}_t$是Stack LSTM对$\delta$的编码，$\mathbf{a}_t$是Stack LSTM对$A$的编码，$\mathbf{d}$是偏置项。
+之后转移状态$\mathbf{e}_t$用于计算该状态下转移动作的概率分布：
 
 \vspace{-0.6em}
 \begin{equation}
-p(z_t|e_t)=\frac{\exp(g^T_{z_t}e_t + q_{z_t})}{\sum_{z'\in A(\sigma, \beta)}\exp (g^T_{z'}e_t+q_{z'})}
+p(z_t|e_t)=\frac{\exp(\mathbf{g}^T_{z_t}\mathbf{e}_t + q_{z_t})}{\sum_{z'\in A(\sigma, \beta)}\exp (\mathbf{g}^T_{z'}\mathbf{e}_t+q_{z'})}
 \end{equation}
 
-其中$g_z$是用于表示转移动作$z$的列向量，而$q_z$是其偏置项，集合$A(\sigma,\beta)$是在当前状态下可以执行的转移动作。
+其中$\mathbf{g}_z$是用于表示转移动作$z$的列向量，而$q_z$是其偏置项，集合$A(\sigma,\beta)$是在当前状态下可以执行的转移动作。
 
 为了获取对转移状态更全面的表示，我们在该结构的基础上提出了2个有效的神经网络模块，即Bi-LSTM Subtraction和Incremental Tree-LSTM，分别对转移过程中的缓存和子图进行建模，因此我们最终的依存图分析系统简称为BS-IT系统。图~\ref{fig:bsit}给出了我们提出的模型的整体结构图。接下来分别对两个模块进行具体介绍。
 
 \begin{figure}[hbtp]
 	\centering
-	\includegraphics[width=130mm]{picture/bsit.jpg}
+	\includegraphics[width=130mm]{picture/bs-it.jpg}
 	\caption{BS-IT系统模型整体结构图}
 	\label{fig:bsit}
 \end{figure}
@@ -193,18 +194,18 @@ p(z_t|e_t)=\frac{\exp(g^T_{z_t}e_t + q_{z_t})}{\sum_{z'\in A(\sigma, \beta)}\exp
 我们用以下公式计算整个缓存在$t$时刻的表示$b_t$：
 
 \begin{equation}
-b_f=h_f(l)-h_f(f)
+\mathbf{b}_f=\mathbf{h}_f(l)-\mathbf{h}_f(f)
 \end{equation}
 \begin{equation}
-b_b=h_b(f)-h_b(l)
+\mathbf{b}_b=\mathbf{h}_b(f)-\mathbf{h}_b(l)
 \end{equation}
 \begin{equation}
-b_t=b_f \oplus b_b
+\mathbf{b}_t=[\mathbf{b}_f ; \mathbf{b}_b]
 \end{equation}
 
-其中，$l$和$f$分别表示在$t$时刻缓存$\beta$中最左边的词和最右边的词，$h_f(a)$和$h_b(a)$分别表示词$a$在从左向右和从右向左的LSTM中的隐层输出。
+其中，$l$和$f$分别表示在$t$时刻缓存$\beta$中最左边的词和最右边的词，$\mathbf{h}_f(a)$和$\mathbf{h}_b(a)$分别表示词$a$在从左向右和从右向左的LSTM中的隐层输出。
 
-例如图~\ref{fig:bs}中计算缓存的表示时，先用“吃饭”的正向LSTM表示$h_f(eat)$减去“太”的正向LSTM表示$h_f(too)$，获得该段正向的表示，再用“太”的反向LSTM表示$h_b(too)$减去“吃饭”的反向LSTM表示$h_b(eat)$，获得该段反向的表示。二者拼接起来作为此时缓存的表示。
+例如图~\ref{fig:bs}中计算缓存的表示时，先用“吃饭”的正向LSTM表示$\mathbf{h}_f(eat)$减去“太”的正向LSTM表示$\mathbf{h}_f(too)$，获得该段正向的表示，再用“太”的反向LSTM表示$\mathbf{h}_b(too)$减去“吃饭”的反向LSTM表示$\mathbf{h}_b(eat)$，获得该段反向的表示。二者拼接起来作为此时缓存的表示。
 
 \citeayu{dyer-EtAl:2015:ACL-IJCNLP}的模型中使用基于依存的递归神经网络（RecNN）\citeyqy{socher2011parsing}来计算转移过程中的子结构，在处理较深的子结构时，这种方法可能会遇到梯度消失问题。为了解决该问题，我们利用Tree-LSTM\citeyqy{tai-socher-manning:2015:ACL-IJCNLP}对这些子结构进行建模。图~\ref{fig:it}显示了我们提出的Incremental Tree-LSTM与基于依存的RecNN的区别。RecNN通过递归地组合一个个父节点-子节点对来构建子图，而Tree-LSTM则能同时合并一个节点及其所有子节点。我们将该模块命名为Incremental Tree-LSTM。
 

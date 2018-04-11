@@ -89,15 +89,19 @@ f(i,j)=
 该方法获得句中词的表示向量的步骤与\citeayu{peng-thomson-smith:2017:Long}相同，但在之后将这些表示输入4个不同的MLP分别获得每个词的4个表示向量：
 
 \begin{equation}
+\label{eq:arc-dep}
 \mathbf{h}^{(arc-dep)}_i = \text{MLP}^{(arc-dep)}(\mathbf{h}_i)
 \end{equation}
 \begin{equation}
+\label{eq:arc-head}
 \mathbf{h}^{(arc-head)}_i = \text{MLP}^{(arc-head)}(\mathbf{h}_i)
 \end{equation}
 \begin{equation}
+\label{eq:rel-dep}
 \mathbf{h}^{(rel-dep)}_i = \text{MLP}^{(rel-dep)}(\mathbf{h}_i)
 \end{equation}
 \begin{equation}
+\label{eq:rel-head}
 \mathbf{h}^{(rel-head)}_i = \text{MLP}^{(rel-head)}(\mathbf{h}_i)
 \end{equation}
 
@@ -115,12 +119,12 @@ f(i,j)=
 \begin{equation}
 \begin{split}
 \mathbf{s}^{(rel)}_i & = \mathbf{h}_{y'^{(arc)}}^{\top(rel-head)}\mathbf{U}^{(rel)}\mathbf{h}^{(rel-dep)}_i \\
-& + W^{(rel)}(\mathbf{h}^{(rel-dep)}_i \oplus \mathbf{h}^{(rel-head)}_{y'^{(arc)}_i}) \\
+& + W^{(rel)}([\mathbf{h}^{(rel-dep)}_i; \mathbf{h}^{(rel-head)}_{y'^{(arc)}_i}]) \\
 & + \mathbf{b}^{(rel)}
 \end{split}
 \end{equation}
 
-其中$\mathbf{s}^{(rel)}_i \in \mathbb{R}^{k}$是$k$个弧标签的分数向量，每一维表示一个标签的分数。$\mathbf{h}_{y'^{(arc)}}^{(rel-head)}$是词$y'_i$的$(rel-head)$表示向量，$\mathbf{h}^{(rel-dep)}_i$是词$x_i$的$(rel-dep)$表示向量，$\mathbf{U}^{(rel)} \in \mathbb{R}^{d\times k \times d}$是弧标签的权重张量，$W^{(rel)} \in \mathbb{R}^{k \times 2d}$是弧标签的权重矩阵，$\mathbf{b}^{(rel)}$是弧标签的偏移向量。最终选择分数最高的弧标签作为这条弧上的标签$y'^{(rel)}_i$：
+其中$\mathbf{s}^{(rel)}_i \in \mathbb{R}^{k}$是$k$个弧标签的分数向量，每一维表示一个标签的分数。$\mathbf{h}_{y'^{(arc)}}^{(rel-head)}$是词$y'_i$的$(rel-head)$表示向量，$\mathbf{h}^{(rel-dep)}_i$是词$x_i$的$(rel-dep)$表示向量，$\mathbf{U}^{(rel)} \in \mathbb{R}^{d\times k \times d}$是弧标签的权重张量，$W^{(rel)} \in \mathbb{R}^{k \times 2d}$是弧标签的权重矩阵，$\mathbf{b}^{(rel)}$是弧标签的偏置向量。最终选择分数最高的弧标签作为这条弧上的标签$y'^{(rel)}_i$：
 
 \begin{equation}
 y'^{(rel)}_i = \arg \max_j s^{(rel)}_{ij}
@@ -146,16 +150,69 @@ y'^{(rel)}_i = \arg \max_j s^{(rel)}_{ij}
 \begin{figure}[hbtp]
 	\centering
 	\includegraphics[width=130mm]{picture/ts-lstm.jpg}
-	\caption{TS-LSTM网络结构示意图（LSTM个数$N=3$，窗口长度$W=4$，时间跨度$TS=2$）}
+	\caption{TS-LSTM网络结构示意图（Bi-LSTM个数$N=3$，窗口长度$W=4$，时间跨度$TS=2$）}
 	\label{fig:ts-lstm}
 \end{figure}
 
-我们从\citeayu{lee2017ensemble}的动作识别的研究工作中得到了启发。他们提出了一种时间滑动长短时记忆网络（Temporal Sliding LSTM, TS-LSTM），由多个在输入序列上以一定的时间跨度滑动的LSTM组成。通过改变时间跨度$TS$和LSTM的窗口长度$W$可以实现提取不同长度依存信息的目的。该TS-LSTM的网络结构如图~\ref{fig:ts-lstm}所示。其中$x_t$表示句中第$t$个词的向量表示，
+我们从\citeayu{lee2017ensemble}的动作识别的研究工作中得到了启发。他们提出了一种时间滑动长短时记忆网络（Temporal Sliding LSTM, TS-LSTM），由多个在输入序列上以一定的时间跨度滑动的LSTM组成。通过改变时间跨度$TS$和LSTM的窗口长度$W$可以实现提取不同长度依存信息的目的。由于他们是对动作序列进行建模，需要时序关系，因此只使用了单向LSTM。为了同时获得句中词的上下文信息，我们将会使用双向LSTM，修改后的TS-LSTM的网络结构如图~\ref{fig:ts-lstm}所示，图中的TS-LSTM包括3个窗口长度为$W=4$的双向LSTM（分别用n=0,1,2表示），时间跨度为$TS=2$。其中$\mathbf{x}_t$表示句中第$t$个词的向量表示，$\mathbf{h}^n_t$表示句中第$t$个词在第$n$个Bi-LSTM中的表示。
 
-%该方法不但利用了语义依存图的结构特性，而且具有较强的可解释性，并且可以同时应用于基于转移的和基于图的分析方法中。
+TS-LSTM中第$n$个Bi-LSTM中正向LSTM的第$t$个时间节点的记忆单元$\mathbf{c}^{f,n}_t$、输入门$\mathbf{i}^{f,n}_t$、遗忘门$\mathbf{f}^{f,n}_t$、输出门$\mathbf{o}^{f,n}_t$及隐层状态$\mathbf{h}^{f,n}_t$分别为：
+
+\begin{equation}
+\mathbf{i}^{f,n}_t = \sigma(W^{f,n}_{ix} \mathbf{x}^{f,n}_t + W^{f,n}_{ih} \mathbf{h}^{f,n}_{t-1} + W^{f,n}_{ic} \mathbf{c}^{f,n}_{t-1} + \mathbf{b}^{f,n}_i)
+\end{equation}
+
+\begin{equation}
+\mathbf{f}^{f,n}_t = \sigma(W^{f,n}_{fx} \mathbf{x}^{f,n}_t + W^{f,n}_{fh} \mathbf{h}^{f,n}_{t-1} + W^{f,n}_{fc} \mathbf{c}^{f,n}_{t-1} + \mathbf{b}^{f,n}_f)
+\end{equation}
+
+\begin{equation}
+\mathbf{c}^{f,n}_t = \mathbf{f}^{f,n}_t \mathbf{c}^{f,n}_{t-1} + \mathbf{i}^{f,n}_t \tanh(W^{f,n}_{cx}\mathbf{x}^{f,n}_t + W^{f,n}_{ch}\mathbf{h}^{f,n}_{t-1} + \mathbf{b}^{f,n}_c)
+\end{equation}
+
+\begin{equation}
+\mathbf{o}^{f,n}_t = \sigma(W^{f,n}_{ox} \mathbf{x}^{f,n}_t + W^{f,n}_{oh} \mathbf{h}^{f,n}_{t-1} + W^{f,n}_{oc} \mathbf{c}^{f,n}_{t-1} + \mathbf{b}^{f,n}_o)
+\end{equation}
+
+其中$\sigma(\cdot)$表示sigmoid函数，$W^{f,n}_{ab}$表示第$n$个Bi-LSTM的正向LSTM的向量$\mathbf{b}$和$\mathbf{a}$之间的权重矩阵，$\mathbf{b}^{f,n}$表示第$n$个Bi-LSTM的正向LSTM中的偏置向量。反向LSTM的公式与其上述相同，只是方向相反，这里不再赘述。第$n$个Bi-LSTM的反向LSTM的在$t$时刻的隐层状态为$\mathbf{h}^{b,n}_t$，第$n$个Bi-LSTM中第$t$个词最终的表示向量$\mathbf{h}^n_t = [\mathbf{h}^{f,n}_t;\mathbf{h}^{b,n}_{W^n-t+1}]$，$W^n$是第$n$个Bi-LSTM的窗口长度。
+使用TS-LSTM，通过改变时间跨度和LSTM窗口长度，就可以实现对语义依存图中的短、中、长距离依赖的分别建模，该结构如图~\ref{fig:multi-ts-lstm}所示。该模型可以同时应用到基于转移的和基于图的依存分析中。
+
+\begin{figure}[hbtp]
+	\centering
+	\includegraphics[width=78mm]{picture/multi-ts-lstm.jpg}
+	\caption{使用多个TS-LSTM对输入序列建模}
+	\label{fig:multi-ts-lstm}
+\end{figure}
+
+在基于转移的依存分析中，可以使用该模型对缓存$\beta$进行建模，用时间跨度和Bi-LSTM窗口长度不同的TS-LSTM获得缓存基于不同距离依赖的表示向量，然后将它们拼接起来作为缓存最终的表示向量。具体来说，首先计算第$l$个TS-LSTM的表示向量$\mathbf{q}^l$：
+
+\begin{equation}
+\mathbf{q}^l = \sum^{W_l-1}_{t=0} \text{concat}([\mathbf{h}^{n}_{n\cdot TS_l + t}]^{n=N_l-1}_{n=0},0)
+\end{equation}
+
+其中$W_l$、$TS_l$和$N_l$分别是第$l$个TS-LSTM的窗口大小、时间跨度和Bi-LSTM个数，$[(\cdot)_n]^{n=N_l-1}_{n=0} = [(\cdot)_0;(\cdot)_1;\dots;(\cdot)_{N_l-1}]$，$\text{concat}([\dots],0)$表示把$[\ ]$中的元素沿第$0$个坐标轴拼接起来。这些基于不同长度依赖的TS-LSTM的表示向量既可以分别作为当前缓存$\beta$的表示替换公式~\ref{eq:trans}中的$\mathbf{b}_t$获得多个模型，然后对这些模型进行融合，也可以拼接起来后再替代原来的缓存在时刻$t$的表示向量$\mathbf{b}_t$：
+
+\begin{equation}
+\mathbf{b}_t = [\mathbf{q}^S;\mathbf{q}^M;\mathbf{q}^L;\mathbf{q}^W]
+\end{equation}
+
+其中$\mathbf{q}^S$、$\mathbf{q}^M$、$\mathbf{q}^L$和$\mathbf{q}^W$分别表示短、中、长距离依赖和整句TS-LSTM的表示向量。
+
+在基于图的依存分析中，用第$l$个TS-LSTM，可以计算出句中第$t$个词的表示$\mathbf{h}^l_t$：
+
+\begin{equation}
+\mathbf{h}^l_t = \sum_{n \in [(t-W_l/)TS_l,t/TS_l]}\mathbf{h}^{l,n}_t
+\end{equation}
+
+其中$\mathbf{h}^{l,n}_t$表示第$l$个TS-LSTM中第$n$个Bi-LSTM计算出的句中第$t$个词的表示。因此，对每个词可以获得分别来自短、中、长距离依赖及整句TS-LSTM的4个表示向量。分别用这4组表示向量替换公式~\ref{eq:arc-dep}-\ref{eq:rel-head}中的$\mathbf{h}_i$，可以得到4个基于不同距离依赖的TS-LSTM的模型。然后可以用传统模型融合方法对这4个模型进行融合，从而提高基于图的依存图分析系统的性能。
 
 \subsubsection{面向语义分析任务的多任务学习技术}
 
+多任务学习（Multi-Task Learning, MTL）是一种通过利用相关任务中包含的信息帮助目标任务学习的归纳迁移方法，它通过使用共享的表示平行地学习多个任务来实现这一目标\citeyqy{caruana1998multitask}。自然语言处理领域早已有一系列将多任务学习应用于分词、词性标注及句法分析等任务的工作\citeyqy{li-EtAl:2011:EMNLP3,hatori-EtAl:2012:ACL2012,bohnet-nivre:2012:EMNLP-CoNLL}。这类工作基本都可以归纳为使用了\citeayu{ando2005framework}提出的参数共享方法。在神经网络模型框架下，\citeayu{Collobert:2008:UAN:1390156.1390177}提出了一种通过共享词向量同时解决多个自然语言处理任务的方法。\citeayu{luong2015iclr}将多任务学习技术应用到序列到序列任务中，同时解决句法分析、机器翻译及图像标注等任务。\citeayu{guo2016coling}提出了一个以多种树库为分析目标的多任务学习框架，通过神经网络中多级别的参数共享实现了在多语言、多标注规范的不同树库上的多任务学习。
+
+为了解决语义依存图分析任务目前阶段相关数据资源有限的问题，我们计划在前文中提到的基于转移的和基于图的分析方法中的神经网络框架的基础上使用多任务学习技术。同时利用现有的SemEval-2016 Task 9中文语义依存图数据集和SemEval-2015 Task 18英文广义语义依存图数据集以及语义角色标注、句法依存分析等与语义依存图分析任务在结构上相似的任务的数据\citeyqy{surdeanu-EtAl:2008:CONLL,hajivc-EtAl:2009:CoNLL-2009-ST}，从而提高语义依存图分析器的性能。下面分别介绍在基于转移的和基于图的两类依存图分析方法中应用多任务学习技术的方案。
+
+在基于转移的方法中，我们将借鉴\citeayu{guo2016coling}的多任务学习框架。他们以\citeayu{ballesteros-dyer-smith:2015:EMNLP}的基于词的Stack-LSTM系统为基础模型，根据所处理多个任务的不同情况（多语言标注体系相同和单语言标注体系不同两种情况）设计了不同的参数共享策略。
 
 \subsection{可行性分析}
 \begin{enumerate}
